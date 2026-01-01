@@ -41,6 +41,9 @@ class Booking
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $updatedAt = null;
 
+    #[ORM\ManyToOne(inversedBy: 'bookings')]
+    private ?Restaurant $Restaurant = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -114,6 +117,18 @@ class Booking
     public function setUpdatedAt(?\DateTimeImmutable $updatedAt): static
     {
         $this->updatedAt = $updatedAt;
+
+        return $this;
+    }
+
+    public function getRestaurant(): ?Restaurant
+    {
+        return $this->Restaurant;
+    }
+
+    public function setRestaurant(?Restaurant $Restaurant): static
+    {
+        $this->Restaurant = $Restaurant;
 
         return $this;
     }
