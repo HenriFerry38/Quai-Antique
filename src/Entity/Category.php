@@ -2,13 +2,12 @@
 
 namespace App\Entity;
 
-use App\Repository\MenuRepository;
-use Doctrine\DBAL\Types\Types;
+use App\Repository\CategoryRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\HasLifecycleCallbacks]
-#[ORM\Entity(repositoryClass: MenuRepository::class)]
-class Menu
+#[ORM\Entity(repositoryClass: CategoryRepository::class)]
+class Category
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -18,16 +17,10 @@ class Menu
     #[ORM\Column(length: 64)]
     private ?string $title = null;
 
-    #[ORM\Column(type: Types::TEXT)]
-    private ?string $description = null;
-
-    #[ORM\Column(type: Types::SMALLINT)]
-    private ?int $price = null;
-
     #[ORM\Column(type: 'datetime_immutable', options: ['default'=> 'CURRENT_TIMESTAMP'])]
     private ?\DateTimeImmutable $createdAt;
-    
-    #[ORM\PrePersist]
+
+     #[ORM\PrePersist]
     public function setCreatedAtValue():void
     {
         if (!isset($this->createdAt)){
@@ -51,30 +44,6 @@ class Menu
     public function setTitle(string $title): static
     {
         $this->title = $title;
-
-        return $this;
-    }
-
-    public function getDescription(): ?string
-    {
-        return $this->description;
-    }
-
-    public function setDescription(string $description): static
-    {
-        $this->description = $description;
-
-        return $this;
-    }
-
-    public function getPrice(): ?int
-    {
-        return $this->price;
-    }
-
-    public function setPrice(int $price): static
-    {
-        $this->price = $price;
 
         return $this;
     }
