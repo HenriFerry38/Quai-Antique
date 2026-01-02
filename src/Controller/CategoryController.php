@@ -2,77 +2,97 @@
 
 namespace App\Controller;
 
-use App\Entity\Category;
 use App\Repository\CategoryRepository;
+use App\Entity\Category;
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Serializer\SerializerInterface;
+use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 
 #[Route('/api/category', name: 'app_api_category_')]
 class CategoryController extends AbstractController
 {
-    public function __construct(private EntityManagerInterface $em, private CategoryRepository $repository)
+    public function __construct(
+        private EntityManagerInterface $em,
+        private CategoryRepository $repository,
+        private SerializerInterface $serializer,
+        private UrlGeneratorInterface $urlGenerator,
+        )
     {
 
     }
-    #[Route('/new', name: 'new', methods: ['POST'])]
-    public function new(): Response
+    #[Route('/', name: 'new', methods: ['POST'])]
+    public function new(Request $request): JsonResponse
     {
-        $category = new Category();
-        $category-> setTitle('Regime traditionel');
-        $category-> setCreatedAt(new \DateTimeImmutable());
+        $category = $this->serializer->deserialize($request->getContent(), Category::class, 'json');
+        $category->setCreatedAt(new DateTimeImmutable());
 
-        //On stock en Base et on averti l'utilisateur
-        
-        $this-> em->persist($category);
-        $this-> em->flush();
+        $this->em->persist($category);
+        $this->em->flush();
 
-        return $this->json(
-            ['message' => "La catégorie a été crée avec l'id {$category->getId()}"], Response::HTTP_CREATED,
+        $responseData = $this->serializer->serialize($category, 'json');
+        $location = $this->urlGenerator->generate(
+            'app_api_category_show',
+            ['id' => $category->getId()],
+            UrlGeneratorInterface::ABSOLUTE_URL,
         );
+        
+        return new JsonResponse($responseData, Response::HTTP_CREATED, ["Location" => $location], true);
     }
 
     #[Route('/{id}', name: 'show', methods: ['GET'],  requirements: ['id' => '\d+'])]
-    public function show(int $id): Response
+    public function show(int $id): JsonResponse
     {
         $category = $this->repository->findOneBy(['id' => $id]);
 
-    if (!$category) {
-            throw $this->createNotFoundException("Aucune catégorie trouvée pour l'id {$id}");
+    if ($category) {
+            $responseData = $this->serializer->serialize($category, 'json');
+
+            return new JsonResponse($responseData, Response::HTTP_OK,[], true);
         }
-        return $this->json(
-            ['message' => "Une catégorie a été trouvée : {$category->getTitle()} pour id : {$category->getId()}"]
-        );
+        return new JsonResponse(null, Response::HTTP_NOT_FOUND);
     }
 
     #[Route('/{id}', name: 'edit', methods: ['PUT'], requirements: ['id' => '\d+'])]
-    public function edit(int $id): Response
+    public function edit(int $id, Request $request): JsonResponse
     {
         $category = $this->repository->findOneBy(['id' => $id]);
 
-        if (!$category) {
-            throw $this->createNotFoundException("Pas de catégorie trouvée pour l'id {$id}");
-        }
+        if ($category) {
+            $category = $this->serializer->deserialize(
+                $request->getContent(),
+                Category::class,
+                'json',
+                [AbstractNormalizer::OBJECT_TO_POPULATE => $category]
+            );
 
-        $category->setTitle('Nom de la catégorie update');
-        $this-> em->flush();
+            $category->setUpdatedAt(new DateTimeImmutable());
+            $this-> em->flush();
+
+            return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+        }
         
-        return $this->redirectToRoute('app_api_category_show', ['id' => $category->getId()]);
+        return new JsonResponse(null, Response::HTTP_NOT_FOUND);
     }
 
     #[Route('/{id}', name: 'delete', methods: 'DELETE')]
-    public function delete(int $id): Response
+    public function delete(int $id): JsonResponse
     {
         $category = $this ->repository->findOneBy(['id' => $id]);
 
-        if (!$category){
-            throw $this->createNotFoundException("Pas de catégorie trouvé pour l'id {$id}");
+        if ($category){
+            $this->em->remove($category);
+            $this->em->flush();
+
+            return new JsonResponse(null, Response::HTTP_NO_CONTENT);
         }
 
-        $this->em->remove($category);
-        $this->em->flush();
-
-        return $this->json(['message' => "La catégorie a été supprimée"], Response::HTTP_NO_CONTENT);
+        return new JsonResponse(null, Response::HTTP_NOT_FOUND);
     }
 }

@@ -4,77 +4,95 @@ namespace App\Controller;
 
 use App\Repository\RestaurantRepository;
 use App\Entity\Restaurant;
+use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Serializer\SerializerInterface;
+use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 
 #[Route('/api/restaurant', name: 'app_api_restaurant_')]
 class RestaurantController extends AbstractController
 {
-    public function __construct(private EntityManagerInterface $em, private RestaurantRepository $repository)
+    public function __construct(
+        private EntityManagerInterface $em,
+        private RestaurantRepository $repository,
+        private SerializerInterface $serializer,
+        private UrlGeneratorInterface $urlGenerator,
+        )
     {
 
     }
-    #[Route('/new', name: 'new', methods: ['POST'])]
-    public function new(): Response
+    #[Route('/', name: 'new', methods: ['POST'])]
+    public function new(Request $request): JsonResponse
     {
-        $restaurant = new Restaurant();
-        $restaurant-> setName('Quai Antique');
-        $restaurant-> setDescription('Le goût des choses bien faites par le chef Arnaud Michant.');
-        $restaurant-> setMaxGuest(40);
-        $restaurant-> setCreatedAt(new \DateTimeImmutable());
+        $restaurant = $this->serializer->deserialize($request->getContent(), Restaurant::class, 'json');
+        $restaurant->setCreatedAt(new DateTimeImmutable());
 
-        //On stock en Base et on averti l'utilisateur
-        
-        $this-> em->persist($restaurant);
-        $this-> em->flush();
+        $this->em->persist($restaurant);
+        $this->em->flush();
 
-        return $this->json(
-            ['message' => "Le Restaurant a été crée avec l'id {$restaurant->getId()}"], Response::HTTP_CREATED,
+        $responseData = $this->serializer->serialize($restaurant, 'json');
+        $location = $this->urlGenerator->generate(
+            'app_api_restaurant_show',
+            ['id' => $restaurant->getId()],
+            UrlGeneratorInterface::ABSOLUTE_URL,
         );
+        
+        return new JsonResponse($responseData, Response::HTTP_CREATED, ["Location" => $location], true);
     }
 
     #[Route('/{id}', name: 'show', methods: ['GET'],  requirements: ['id' => '\d+'])]
-    public function show(int $id): Response
+    public function show(int $id): JsonResponse
     {
         $restaurant = $this->repository->findOneBy(['id' => $id]);
 
-    if (!$restaurant) {
-            throw $this->createNotFoundException("Aucun Restaurant trouvé pour l'id {$id}");
+    if ($restaurant) {
+            $responseData = $this->serializer->serialize($restaurant, 'json');
+
+            return new JsonResponse($responseData, Response::HTTP_OK,[], true);
         }
-        return $this->json(
-            ['message' => "Un Restaurant a été trouvé : {$restaurant->getName()} pour id : {$restaurant->getId()}"]
-        );
+        return new JsonResponse(null, Response::HTTP_NOT_FOUND);
     }
 
     #[Route('/{id}', name: 'edit', methods: ['PUT'], requirements: ['id' => '\d+'])]
-    public function edit(int $id): Response
+    public function edit(int $id, Request $request): JsonResponse
     {
         $restaurant = $this->repository->findOneBy(['id' => $id]);
 
-        if (!$restaurant) {
-            throw $this->createNotFoundException("Pas de Restaurant trouvé pour l'id {$id}");
-        }
+        if ($restaurant) {
+            $restaurant = $this->serializer->deserialize(
+                $request->getContent(),
+                Restaurant::class,
+                'json',
+                [AbstractNormalizer::OBJECT_TO_POPULATE => $restaurant]
+            );
 
-        $restaurant->setName('Nom du Restaurant update');
-        $this-> em->flush();
+            $restaurant->setUpdatedAt(new DateTimeImmutable());
+            $this-> em->flush();
+
+            return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+        }
         
-        return $this->redirectToRoute('app_api_restaurant_show', ['id' => $restaurant->getId()]);
+        return new JsonResponse(null, Response::HTTP_NOT_FOUND);
     }
 
     #[Route('/{id}', name: 'delete', methods: 'DELETE')]
-    public function delete(int $id): Response
+    public function delete(int $id): JsonResponse
     {
         $restaurant = $this ->repository->findOneBy(['id' => $id]);
 
-        if (!$restaurant){
-            throw $this->createNotFoundException("Pas de Restaurant trouvé pour l'id {$id}");
+        if ($restaurant){
+            $this->em->remove($restaurant);
+            $this->em->flush();
+
+            return new JsonResponse(null, Response::HTTP_NO_CONTENT);
         }
 
-        $this->em->remove($restaurant);
-        $this->em->flush();
-
-        return $this->json(['message' => "Le restaurant a été supprimé"], Response::HTTP_NO_CONTENT);
+        return new JsonResponse(null, Response::HTTP_NOT_FOUND);
     }
 }
