@@ -33,6 +33,14 @@ class Category
     #[ORM\Column(nullable: true, type: 'datetime_immutable', options: ['default'=> 'CURRENT_TIMESTAMP'])]
     private ?\DateTimeImmutable $updatedAt = null;
 
+     #[ORM\PrePersist]
+    public function setUpdatedAtValue():void
+    {
+        if (!isset($this->updatedAt)){
+            $this->createdAt = new \DateTimeImmutable();
+        }
+    }
+
     /**
      * @var Collection<int, Food>
      */

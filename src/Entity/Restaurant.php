@@ -42,8 +42,16 @@ class Restaurant
             $this->createdAt = new \DateTimeImmutable();
         }
     }
-    #[ORM\Column(nullable: true)]
+    #[ORM\Column(nullable: true,type: 'datetime_immutable', options: ['default'=> 'CURRENT_TIMESTAMP'])]
     private ?\DateTimeImmutable $updatedAt = null;
+
+    #[ORM\PrePersist]
+    public function setUpdatedAtValue():void
+    {
+        if (!isset($this->updatedAt)){
+            $this->updatedAt = new \DateTimeImmutable();
+        }
+    }
 
     /**
      * @var Collection<int, Picture>
