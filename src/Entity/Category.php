@@ -37,7 +37,7 @@ class Category
     public function setUpdatedAtValue():void
     {
         if (!isset($this->updatedAt)){
-            $this->createdAt = new \DateTimeImmutable();
+            $this->updatedAt = new \DateTimeImmutable();
         }
     }
 

@@ -24,15 +24,6 @@ class SmokeTest extends WebTestCase
         $client = self::createClient();
         $client->followRedirects(false);
 
-        $client->request('POST','/api/registration', [], [], [
-            'CONTENT_TYPE' => 'application/json',
-        ], json_encode([
-            'firstName' => 'testo',
-            'lastName' => 'test',
-            'email' => 'test@test.fr',
-            'password' => 'test'
-        ], JSON_THROW_ON_ERROR));
-
         $client->request('POST','/api/login', [], [], [
             'CONTENT_TYPE' => 'application/json',
         ], json_encode([
